@@ -10,6 +10,7 @@ class PaymentServer:
         self.api_key = techwizapi_key
         self.shop_id = techwizapi_shop_id
         self.app = web.Application()
+        self.create_order = "https://techwhizpay.ru/api/createOrder"
 
     async def success_payment_handler(self, request):
         data = await request.json()
@@ -37,26 +38,24 @@ class PaymentServer:
                 'status': 'Sign are corrupted!'
             })
 
-    async def create_payment_handler(self, request, unique_id, amount, description):
-        data = await request.json()
-
+    async def create_payment(self, unique_id, amount, description, user_id):
         payload = {
             'token': self.api_key,
             'unique_id': unique_id,
             'amount': amount,
             'shop_id': self.shop_id,
             'description': description,
-            'user_ip': '94.131.11.149',  #TODO: get user ip
-            'user_id': '1'
+            'user_ip': '94.131.11.149',  # TODO: get user ip
+            'user_id': user_id
         }
 
         async with ClientSession() as session:
             try:
-                async with session.post(self.api_url, json=payload) as response:
+                async with session.post(self.create_order, json=payload) as response:
                     response_data = await response.json()
-                    return web.json_response(response_data)
+                    return response_data
             except Exception as e:
-                return e
+                return {'error': str(e)}
 
     async def get_payment_handler(self, request):
         data = await request.json()
