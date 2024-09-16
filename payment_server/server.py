@@ -11,6 +11,7 @@ class PaymentServer:
         self.shop_id = techwizapi_shop_id
         self.app = web.Application()
         self.create_order = "https://techwhizpay.ru/api/createOrder"
+        self.check_order_url = 'https://techwhizpay.ru/api/checkOrder'
 
     async def success_payment_handler(self, request):
         data = await request.json()
@@ -24,7 +25,7 @@ class PaymentServer:
         paid_at = data['paid_at']
         email = data['email']
         description = data['description']
-        additional_info = data['additional_info']
+        additional = data['additional']
 
         my_sign = f"{unique_id}:{amount}:{self.api_key}:{self.shop_id}"
         verif_sign = hashlib.sha256(my_sign.encode()).hexdigest();
@@ -38,7 +39,49 @@ class PaymentServer:
                 'status': 'Sign are corrupted!'
             })
 
-    async def create_payment(self, unique_id, amount, description, user_id):
+    async def check_order_status(self, unique_id):
+        """Проверяет статус заказа на стороне платежного сервиса."""
+        payload = {
+            'unique_id': unique_id
+        }
+
+        headers = {
+            'Content-type': 'application/x-www-form-urlencoded'
+        }
+
+        async with ClientSession() as session:
+            try:
+                async with session.post(self.check_order_url, data=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        status = result.get('data', {}).get('status')
+                        return status  # Вернем статус заказа
+                    else:
+                        print(f"Ошибка при запросе статуса заказа: {response.status}")
+                        return None
+            except Exception as e:
+                print(f"Ошибка при выполнении запроса: {e}")
+                return None
+
+    async def monitor_payment(self, unique_id):
+        """Запускает мониторинг статуса платежа на 60 минут."""
+        check_intervals = [5, 10, 15, 30, 45, 60]  # Интервалы в минутах
+
+        for interval in check_intervals:
+            await asyncio.sleep(interval * 60)  # Ожидание в минутах
+            status = await self.check_order_status(unique_id)
+
+            if status == 1:
+                print(f"Заказ {unique_id} был оплачен!")
+                # Здесь можно добавить пользователя в канал или выполнить другие действия
+                return True
+            else:
+                print(f"Заказ {unique_id} пока не оплачен. Статус: {status}")
+
+        print(f"Заказ {unique_id} не был оплачен за 60 минут.")
+        return False
+
+    async def create_payment(self, unique_id, amount, description, user_id, additional):
         payload = {
             'token': self.api_key,
             'unique_id': unique_id,
@@ -46,7 +89,8 @@ class PaymentServer:
             'shop_id': self.shop_id,
             'description': description,
             'user_ip': '94.131.11.149',  # TODO: get user ip
-            'user_id': user_id
+            'user_id': user_id,
+            'additional': additional
         }
 
         async with ClientSession() as session:
