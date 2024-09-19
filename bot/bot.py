@@ -1,6 +1,10 @@
+import datetime
 import uuid
 from pyrogram import Client, filters
 from payment_server.server import *
+from database.models import *
+from database.subscriber import Subscriber
+from database.payment import Payment
 
 
 class Bot:
@@ -34,7 +38,38 @@ class Bot:
                     await message.reply(f"Ссылка на оплату: {payment_link}")
 
                     # Запускаем отслеживание платежа
-                    await self.payment_server.monitor_payment(unique_id)
+                    is_subscribe_paid = await self.payment_server.monitor_payment(unique_id)
+
+                    if is_subscribe_paid:
+                        subscriber, created = await Subscriber.get_or_create(
+                            telegram_id=message.from_user.id,
+                            defaults={
+                                'nickname': message.from_user.username,
+                                'first_subscribe_date': (datetime.datetime.now()).date(),
+                                'subscribe_valid_to_date': (datetime.datetime.now() + datetime.timedelta(days=30)).date()
+                            }
+                        )
+
+                        await Payment.create(
+                            amount=amount,
+                            subscriber=subscriber,
+                        )
+
+                        await message.reply(f"Платеж по заказу {unique_id} был получен.")
+
+                        channel_id = 2316341502
+
+                        invite_link = await self.client.create_chat_invite_link(
+                            channel_id,
+                            member_limit=1
+                        )
+
+                        await message.reply(f"Доступ к привату: {invite_link.invite_link}")
+
+                    else:
+                        await message.reply(
+                            f"Платеж по заказу {unique_id} не был получен в течении часа - ссылка на оплату недействительна.")
+
                 else:
                     error_message = response.get('data', {}).get('error_message', 'Неизвестная ошибка')
                     await message.reply(f"Ошибка: {error_message}")

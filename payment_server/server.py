@@ -65,7 +65,7 @@ class PaymentServer:
 
     async def monitor_payment(self, unique_id):
         """Запускает мониторинг статуса платежа на 60 минут."""
-        check_intervals = [5, 10, 15, 30, 45, 60]  # Интервалы в минутах
+        check_intervals = [2, 3, 4, 5, 10, 15, 30, 45, 60]  # Интервалы в минутах
 
         for interval in check_intervals:
             await asyncio.sleep(interval * 60)  # Ожидание в минутах
