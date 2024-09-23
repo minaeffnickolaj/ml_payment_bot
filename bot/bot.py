@@ -5,6 +5,20 @@ from payment_server.server import *
 from database.models import *
 from database.subscriber import Subscriber
 from database.payment import Payment
+from pyrogram import utils
+
+
+def get_peer_type_new(peer_id: int) -> str:
+    peer_id_str = str(peer_id)
+    if not peer_id_str.startswith("-"):
+        return "user"
+    elif peer_id_str.startswith("-100"):
+        return "channel"
+    else:
+        return "chat"
+
+
+utils.get_peer_type = get_peer_type_new
 
 
 class Bot:
@@ -46,7 +60,8 @@ class Bot:
                             defaults={
                                 'nickname': message.from_user.username,
                                 'first_subscribe_date': (datetime.datetime.now()).date(),
-                                'subscribe_valid_to_date': (datetime.datetime.now() + datetime.timedelta(days=30)).date()
+                                'subscribe_valid_to_date': (
+                                            datetime.datetime.now() + datetime.timedelta(days=30)).date()
                             }
                         )
 
@@ -57,7 +72,7 @@ class Bot:
 
                         await message.reply(f"Платеж по заказу {unique_id} был получен.")
 
-                        channel_id = 2316341502
+                        channel_id = int(-1002316341502)
 
                         invite_link = await self.client.create_chat_invite_link(
                             channel_id,
